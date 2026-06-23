@@ -1,0 +1,60 @@
+name: Teka Product Feed Scraper
+
+on:
+  schedule:
+    # Every Monday at 06:00 UTC
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (no Sheets upload)"
+        type: boolean
+        default: false
+      categories:
+        description: "Category indices to scrape (comma-separated, blank = all)"
+        type: string
+        default: ""
+
+jobs:
+  scrape:
+    name: Scrape products
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install Playwright browsers
+        run: python -m playwright install chromium --with-deps
+
+      - name: Run scraper
+        env:
+          GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+          GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
+        run: |
+          ARGS=""
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            ARGS="$ARGS --dry-run"
+          fi
+          if [ -n "${{ inputs.categories }}" ]; then
+            ARGS="$ARGS --categories ${{ inputs.categories }}"
+          fi
+          python -m scraper.main $ARGS --output products_output.json
+
+      - name: Upload JSON artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: products-json-${{ github.run_id }}
+          path: products_output.json
+          retention-days: 30
