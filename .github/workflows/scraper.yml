@@ -2,8 +2,8 @@ name: Teka Product Feed Scraper
 
 on:
   schedule:
-    # Every Monday at 06:00 UTC
-    - cron: "0 6 * * 1"
+    # Every 6 hours
+    - cron: "0 */6 * * *"
   workflow_dispatch:
     inputs:
       dry_run:
